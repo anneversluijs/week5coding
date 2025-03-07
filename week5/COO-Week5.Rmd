@@ -155,8 +155,8 @@ renderGraph(example_graph_plot)
 Do you understand why the plot looks the way it looks?
 
 ``` {r}
-baits <- c("A", "A", "A", "A")
-preys <- c("B", "C", "D", "E")
+baits <- c("A", "A", "A", "A", 'B', 'B')
+preys <- c("B", "C", "D", "E", 'F', 'G')
 
 
 #First we use our function to create the graph
@@ -176,9 +176,8 @@ renderGraph(example_graph_plot)
 Do you understand why the plot looks the way it looks?
 
 ``` {r}
-baits <- c("A", "A", "A", "A")
-preys <- c("B", "C", "D", "E")
-
+baits <- c("A", "A", "A", "A", 'B', 'B', 'F', 'G')
+preys <- c("B", "C", "D", "E", 'F', 'G', 'I', 'I')
 
 #First we use our function to create the graph
 
@@ -211,14 +210,16 @@ For this you can use the print() or head() function. However also just typing th
 
 ```{r}
 ## lets load our supplementary data
-SuppS6 <- 
+
+SuppS6 <- read_excel('C:/Users/annev/OneDrive/Bureaublad/Utrecht/Omics in oncology/week5coding/week5/science.abf3066_Table_S6.xlsx', sheet = 2)
 
 ```
 
 ### 2. Check the loaded data
 
 ```{r}
-
+print(SuppS6)
+head(SuppS6)
 ```
 
 Now we know what our function does, let's have a look at our experimental data.
@@ -231,12 +232,18 @@ For convenience we will first store the content of these columns in their own va
 ### 1. Store the content of the *Bait column* in a variable **baits** and the *Prey column* in **preys**
 
 ```{r}
+baits <- SuppS6$Bait
+preys <- SuppS6$Prey
 
 ```
 
 ### 2. use the *makeproteingraph(.. , ..)* function and store the output in the variable **interactionGraph** (this is now a *graphNEL-object*)
 
 ```{r}
+interactionGraph <- makeproteingraph(baits, preys)
+interactionGraph_plot <- layoutGraph(interactionGraph, layoutType="neato")
+
+renderGraph(interactionGraph_plot)
 
 ```
 
@@ -303,6 +310,8 @@ Of course we like to plot this as well, like we did with the complete dataset.
 *All the steps above are similar to the steps you did for the 'complete' dataset*
 
 ```{r}
+baitssub <- SuppS6_sub$Bait
+preyssub <- SuppS6_sub$Prey
 
 ```
 
@@ -310,6 +319,10 @@ Of course we like to plot this as well, like we did with the complete dataset.
 4. render the graph.
 
 ```{r}
+interactionGraphsub <- makeproteingraph(baitssub, preyssub)
+interactionGraphsub_plot <- layoutGraph(interactionGraphsub, layoutType="neato")
+
+renderGraph(interactionGraphsub_plot)
 
 ```
 
@@ -331,43 +344,67 @@ In short this is what the code below does:
 The nitty gritty details are in: https://www.bioconductor.org/packages/devel/bioc/vignettes/Rgraphviz/inst/doc/newRgraphvizInterface.pdf
 
 ```{r}
-SuppS6_sub <- filter(SuppS6, DIS > 0.5)
-ppiGraph <- makeproteingraph(SuppS6_sub$Bait, SuppS6_sub$Prey, SuppS6_sub$DIS)
+library(RColorBrewer)
 
+# Create a color gradient function
+color_gradient <- colorRampPalette(c("lightgrey", "pink"))
 
-ppiGraph <- layoutGraph(ppiGraph, layoutType="neato") #layoutType="fdp" is also cool, but slow, try it out!
+# Map DIS values to colors
+edge_colors <- color_gradient(100)[as.numeric(cut(SuppS6_sub$DIS, breaks=100))]
 
-## formatting the prey nodes (SuppS6_sub$Prey)
-preyFont <- rep(1, length(SuppS6_sub$Prey)) #assign a very small font size to the prey nodes
-names(preyFont)<-SuppS6_sub$Prey
+# Assign colors to edges
+edgeRenderInfo(ppiGraph) <- list(col=edge_colors)
 
-
-## formatting the bait nodes (SuppS6_sub$Bait) 
-fill <- rep("lightblue", length(SuppS6_sub$Bait)) #assign the blue color to the bait nodes
-names(fill) <- SuppS6_sub$Bait
-
-shape <- rep("box", length(SuppS6_sub$Bait)) #assign the box shape to the bait nodes
+# Define bait nodes
+shape <- rep("rectangle", length(SuppS6_sub$Bait))  # Rectangles for baits
 names(shape) <- SuppS6_sub$Bait
 
-baitFont <- rep(48, length(SuppS6_sub$Bait))#assign the font size to the bait nodes
+baitFont <- rep(48, length(SuppS6_sub$Bait))  # Large font for baits
 names(baitFont) <- SuppS6_sub$Bait
 
-lwd <- rep(2, length(SuppS6_sub$Bait)) #make the borders around the bait nodes squares 2px thick.
+fill <- rep("lightblue", length(SuppS6_sub$Bait))  # Default blue for baits
+names(fill) <- SuppS6_sub$Bait
+
+lwd <- rep(2, length(SuppS6_sub$Bait))  # Thick border for baits
 names(lwd) <- SuppS6_sub$Bait
 
+# Formatting prey nodes (Unlabeled, Small Circles)
+prey_nodes <- SuppS6_sub$Prey
+preyFont <- rep(1, length(prey_nodes))  # Small font for prey labels
+names(preyFont) <- prey_nodes
 
-## the nodeRenderInfo takes these list with parameters (settings) and uses that format the graph.
-nodeRenderInfo(ppiGraph) <- list(fontsize=preyFont)
-nodeRenderInfo(ppiGraph) <- list(fontsize=baitFont) 
-nodeRenderInfo(ppiGraph) <- list(fill=fill)
-nodeRenderInfo(ppiGraph) <- list(shape=shape)
-nodeRenderInfo(ppiGraph) <- list(lwd=lwd)
-nodeRenderInfo(ppiGraph) <- list(lty=1)
+preyShape <- rep("circle", length(prey_nodes))  # Small circles for preys
+names(preyShape) <- prey_nodes
 
-## some additional markup stuff, set at title and subtitle.
+preySize <- rep(10, length(prey_nodes))  # Make them smaller
+names(preySize) <- prey_nodes
+
+# Combine bait and prey nodes
+all_nodes <- c(SuppS6_sub$Bait, prey_nodes)
+
+# Create a combined font vector
+font <- c(baitFont, preyFont)
+names(font) <- all_nodes
+
+# Create a combined shape vector
+shape <- c(shape, preyShape)
+names(shape) <- all_nodes
+
+# Create a combined fill vector
+fill <- c(fill, rep("white", length(prey_nodes)))  # Default fill for prey nodes
+names(fill) <- all_nodes
+
+# Create a combined lwd vector
+lwd <- c(lwd, rep(1, length(prey_nodes)))  # Default border width for prey nodes
+names(lwd) <- all_nodes
+
+# Apply node formatting
+nodeRenderInfo(ppiGraph) <- list(fontsize=font, fill=fill, shape=shape, lwd=lwd, lty=1)
+
+# Additional markup
 graph.par(list(nodes=list(fontsize=36), graph=list(main="PPI NETWORK", sub="DIS > 0.5", cex.main=1.8, cex.sub=1.4, col.sub="gray")))
 
-## finally we use the renderGraph function to draw the graph again
+# Render the graph
 renderGraph(ppiGraph)
 
 ```
@@ -388,8 +425,9 @@ The number of connections per node can be found with the 'degree' function.
 Sort the output of this function to give a nice overview of what proteins have the most connected proteins.
 
 ```{r}
-
-
+node_degrees <- degree(interactionGraphsub)
+sorted_degrees <- sort(node_degrees, decreasing = TRUE)
+print(sorted_degrees)
 ```
 
 ### Create a counts table
@@ -401,7 +439,7 @@ Use this function to analyze the output of the degree function from above
 
 ```
 ```{r}
-hist(sort(degree(ppiGraph)))
+hist(sorted_degrees)
 ```
 
 ### About these results
@@ -411,7 +449,7 @@ Explain why you see this. Think about it, also in terms of the experiment we're 
 
 _______________________________
 
-Type your answer here!
+None with a degree of 0, most have a degree of 1, two have a degree over 40.
 
 _______________________________
 
@@ -421,6 +459,8 @@ Extract the connected components from our graph using the connectedComp method. 
 Assign the outcome to a variable with a name you will still understand when we wake you up at night (hypothetically of course!).
 
 ```{r}
+connected_comp <- connectedComp(interactionGraphsub_plot)
+print(connected_comp)
 
 ```
 
@@ -431,5 +471,7 @@ Read about the 'adj' function, and extract all interactors of the TP53 protein.
 ```{r interactors with adj}
 #START_ANSWER
 adj(ppiGraph, 'TP53')
+?adj
+
 #END_ANSWER
 ```
